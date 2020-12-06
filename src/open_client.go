@@ -2,7 +2,7 @@ package src
 
 import (
 	"fmt"
-	"github.com/morgine/wechat/pkg"
+	"github.com/morgine/wechat_sdk/pkg"
 	"log"
 	"net/http"
 	"sync"

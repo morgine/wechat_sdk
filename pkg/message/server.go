@@ -3,7 +3,7 @@ package message
 import (
 	"encoding/xml"
 	"errors"
-	"github.com/morgine/wechat/pkg"
+	"github.com/morgine/wechat_sdk/pkg"
 	"io/ioutil"
 	"net/http"
 )

@@ -2,8 +2,8 @@ package src
 
 import (
 	"fmt"
-	"github.com/morgine/wechat/pkg"
-	"github.com/morgine/wechat/pkg/message"
+	"github.com/morgine/wechat_sdk/pkg"
+	"github.com/morgine/wechat_sdk/pkg/message"
 	"net/http"
 )
 

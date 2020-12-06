@@ -1,7 +1,7 @@
 package src
 
 import (
-	"github.com/morgine/wechat/pkg/message"
+	"github.com/morgine/wechat_sdk/pkg/message"
 )
 
 type Context struct {

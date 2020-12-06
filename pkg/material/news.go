@@ -1,7 +1,7 @@
 package material
 
 import (
-	"github.com/morgine/wechat/pkg"
+	"github.com/morgine/wechat_sdk/pkg"
 )
 
 type News struct {

@@ -3,7 +3,7 @@ package message
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/morgine/wechat/pkg"
+	"github.com/morgine/wechat_sdk/pkg"
 	"io/ioutil"
 	"net/http"
 )

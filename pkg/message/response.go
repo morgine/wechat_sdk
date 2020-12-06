@@ -2,7 +2,7 @@ package message
 
 import (
 	"encoding/xml"
-	"github.com/morgine/wechat/pkg"
+	"github.com/morgine/wechat_sdk/pkg"
 )
 
 // 被动回复消息类型

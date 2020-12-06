@@ -1,7 +1,7 @@
 package users
 
 import (
-	"github.com/morgine/wechat/pkg"
+	"github.com/morgine/wechat_sdk/pkg"
 )
 
 // 用户标签接口, see: https://mp.weixin.qq.com/wiki?t=resource/res_main&id=mp1421140837

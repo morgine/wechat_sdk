@@ -1,11 +1,11 @@
 package src
 
 import (
-	"github.com/morgine/wechat/pkg"
-	"github.com/morgine/wechat/pkg/material"
-	"github.com/morgine/wechat/pkg/message"
-	"github.com/morgine/wechat/pkg/statistics"
-	"github.com/morgine/wechat/pkg/users"
+	"github.com/morgine/wechat_sdk/pkg"
+	"github.com/morgine/wechat_sdk/pkg/material"
+	"github.com/morgine/wechat_sdk/pkg/message"
+	"github.com/morgine/wechat_sdk/pkg/statistics"
+	"github.com/morgine/wechat_sdk/pkg/users"
 	"log"
 	"net/http"
 	"os"

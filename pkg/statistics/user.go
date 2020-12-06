@@ -1,7 +1,7 @@
 package statistics
 
 import (
-	"github.com/morgine/wechat/pkg"
+	"github.com/morgine/wechat_sdk/pkg"
 	"time"
 )
 

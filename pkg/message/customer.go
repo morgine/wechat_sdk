@@ -1,7 +1,7 @@
 package message
 
 import (
-	"github.com/morgine/wechat/pkg"
+	"github.com/morgine/wechat_sdk/pkg"
 )
 
 // 客服消息类型

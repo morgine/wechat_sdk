@@ -1,7 +1,7 @@
 package users
 
 import (
-	"github.com/morgine/wechat/pkg"
+	"github.com/morgine/wechat_sdk/pkg"
 )
 
 // 获得已订阅用户列表

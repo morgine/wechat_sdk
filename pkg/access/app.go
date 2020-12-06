@@ -1,7 +1,7 @@
 package access
 
 import (
-	"github.com/morgine/wechat/pkg"
+	"github.com/morgine/wechat_sdk/pkg"
 )
 
 type AppAccessToken struct {

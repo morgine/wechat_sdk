@@ -2,7 +2,7 @@ package access
 
 import (
 	"github.com/google/go-querystring/query"
-	"github.com/morgine/wechat/pkg"
+	"github.com/morgine/wechat_sdk/pkg"
 	"net/http"
 	"strconv"
 )

@@ -1,4 +1,4 @@
-module github.com/morgine/wechat
+module github.com/morgine/wechat_sdk
 
 go 1.15
 

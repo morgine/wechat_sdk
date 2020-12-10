@@ -20,13 +20,12 @@ type OpenClient struct {
 type OpenClientConfigs struct {
 	Appid            string
 	Secret           string
-	MsgVerifyToken   string                                          // 消息验证 token
-	AesKey           string                                          // 消息加解密 key
-	AesToken         string                                          // 消息加解密 token
-	AppidGetter      func(r *http.Request) (appid string, err error) // 监听服务器消息时， 通过该方法获得 appid 参数
-	ComponentStorage ComponentStorage                                // 开放平台存储器
-	AppStorage       AppStorage                                      // 公众号信息存储器
-	Logger           *log.Logger                                     // 错误日志收集器
+	MsgVerifyToken   string           // 消息验证 token
+	AesKey           string           // 消息加解密 key
+	AesToken         string           // 消息加解密 token
+	ComponentStorage ComponentStorage // 开放平台存储器
+	AppStorage       AppStorage       // 公众号信息存储器
+	Logger           *log.Logger      // 错误日志收集器
 }
 
 func NewOpenClient(configs *OpenClientConfigs) (*OpenClient, error) {
@@ -41,6 +40,10 @@ func NewOpenClient(configs *OpenClientConfigs) (*OpenClient, error) {
 		Dispatcher:    NewDispatcher(),
 		mu:            sync.Mutex{},
 	}, nil
+}
+
+func (oc *OpenClient) Configs() *OpenClientConfigs {
+	return oc.configs
 }
 
 // 监听通知消息
@@ -270,19 +273,13 @@ func (oc *OpenClient) GetClient(appid string) (*PublicClient, error) {
 }
 
 // 读取用户发送/触发的消息
-func (oc *OpenClient) ListenMessage(w http.ResponseWriter, r *http.Request) {
-	appid, err := oc.configs.AppidGetter(r)
+func (oc *OpenClient) ListenMessage(appid string, w http.ResponseWriter, r *http.Request) {
+	client, err := oc.GetClient(appid)
 	if err != nil {
 		oc.configs.Logger.Println(err)
 	} else {
-		client, err := oc.GetClient(appid)
-		if err != nil {
-			oc.configs.Logger.Println(err)
-		} else {
-			client.ListenMessage(w, r)
-		}
+		client.ListenMessage(w, r)
 	}
-	return
 }
 
 // 获得公众号信息，如果公众号不存在则拉取并保存公众号信息
@@ -355,11 +352,11 @@ type MultipleAppUserStatistics struct {
 }
 
 // 获得多公众号统计数据
-func (oc *OpenClient) UserStatistics(appLimit, appOffset int, beginDate, endDate time.Time) (*MultipleAppUserStatistics, error) {
-	apps, err := oc.configs.AppStorage.GetAppNicknames(appLimit, appOffset)
-	if err != nil {
-		return nil, err
-	}
+func (oc *OpenClient) GetUserStatistics(apps []*AppInfo, beginDate, endDate time.Time) *MultipleAppUserStatistics {
+	//apps, err := oc.configs.AppStorage.GetAppNicknames(appLimit, appOffset)
+	//if err != nil {
+	//	return nil, err
+	//}
 	maus := &MultipleAppUserStatistics{
 		AppCount: len(apps),
 	}
@@ -367,7 +364,7 @@ func (oc *OpenClient) UserStatistics(appLimit, appOffset int, beginDate, endDate
 	for _, app := range apps {
 		aus := &AppUserStatistics{
 			Appid:    app.Appid,
-			Nickname: app.Nickname,
+			Nickname: app.NickName,
 		}
 		wg.Add(1)
 		go func() {
@@ -389,5 +386,5 @@ func (oc *OpenClient) UserStatistics(appLimit, appOffset int, beginDate, endDate
 		maus.AppUserStatistics = append(maus.AppUserStatistics, aus)
 	}
 	wg.Wait()
-	return maus, nil
+	return maus
 }

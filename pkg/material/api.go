@@ -17,7 +17,7 @@ const (
 type TempMedia struct {
 	Type      MediaType `json:"type"`       // 媒体文件类型，分别有图片（image）、语音（voice）、视频（video）和缩略图（thumb，主要用于视频与音乐格式的缩略图）
 	MediaID   string    `json:"media_id"`   // 媒体文件上传后，获取标识
-	CreatedAt int64     `json:"created_at"` // 媒体文件上传时间戳
+	CreatedAt int64     `json:"created_at"` // 媒体文件上传时间戳, 以此来判断临时文件是否过期
 	ExpireIn  int64     `json:"expire_in"`
 }
 

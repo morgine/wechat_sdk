@@ -28,11 +28,10 @@ type AppNickname struct {
 }
 
 type AppStorage interface {
-	SaveAppInfo(appid string, info *AppInfo) error             // 保存公众号信息
-	GetAppInfo(appid string) (*AppInfo, error)                 // 获得公众号信息，如果信息不存在，则返回 nil
-	DelAppInfo(appid string) error                             // 删除公众号信息
-	DelAppInfoNotIn(appids []string) error                     // 删除不存在于 appids 中的所有其他公众号信息
-	GetAppNicknames(limit, offset int) ([]*AppNickname, error) // 批量获取已公众号昵称信息
+	SaveAppInfo(appid string, info *AppInfo) error // 保存公众号信息
+	GetAppInfo(appid string) (*AppInfo, error)     // 获得公众号信息，如果信息不存在，则返回 nil
+	DelAppInfo(appid string) error                 // 删除公众号信息
+	DelAppInfoNotIn(appids []string) error         // 删除不存在于 appids 中的所有其他公众号信息
 }
 
 type componentStorage struct {

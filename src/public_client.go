@@ -66,8 +66,9 @@ func (pc *PublicClient) ListenMessage(w http.ResponseWriter, r *http.Request) {
 				msg,
 				msgData,
 				pc.configs.AppGetter,
-				func() CustomerMsgSender {
-					return newCustomerMsgSender(pc.configs.TokenGetter, pc.configs.Logger)
+				func() CustomerMsgResponser {
+					sender := newCustomerMsgSender(pc.configs.TokenGetter, pc.configs.Logger)
+					return newCustomerMsgResponser(msg.FromUserName, sender)
 				},
 				writer,
 			)

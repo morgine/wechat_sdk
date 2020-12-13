@@ -188,7 +188,7 @@ func (pc *PublicClient) GetUserSummary(beginDate, endDate time.Time) ([]*statist
 		dateTimeRanges := splitDateTimeRange(beginDate, endDate, oneWeekTime, fiveWeekTime)
 		var summaries []*statistics.Summary
 		for _, dtr := range dateTimeRanges {
-			rangeSummaries, err := statistics.GetUserSummary(token, dtr.beginDate, dtr.endDate)
+			rangeSummaries, err := statistics.GetUserSummary(token, dtr.BeginDate, dtr.EndDate)
 			if err != nil {
 				return nil, err
 			} else {
@@ -208,7 +208,7 @@ func (pc *PublicClient) GetUserCumulate(beginDate, endDate time.Time) ([]*statis
 		dateTimeRanges := splitDateTimeRange(beginDate, endDate, oneWeekTime, fiveWeekTime)
 		var cumulates []*statistics.Cumulate
 		for _, dtr := range dateTimeRanges {
-			rangeCumulates, err := statistics.GetUserCumulate(token, dtr.beginDate, dtr.endDate)
+			rangeCumulates, err := statistics.GetUserCumulate(token, dtr.BeginDate, dtr.EndDate)
 			if err != nil {
 				return nil, err
 			} else {
@@ -220,8 +220,8 @@ func (pc *PublicClient) GetUserCumulate(beginDate, endDate time.Time) ([]*statis
 }
 
 type dateTimeRange struct {
-	beginDate time.Time
-	endDate   time.Time
+	BeginDate time.Time
+	EndDate   time.Time
 }
 
 var (
@@ -232,23 +232,16 @@ var (
 
 // 将一个大的时间区间划分为多个小的时间区间，起止时间不分先后，将被自动判断，默认按一周时间分割
 // 结束时间最晚只能是当前时间的前一天，起始时间最晚只能是结束时间的前一天，超出范围将被设置为默认值
-// 最大时间跨度不能超过5周，超出将被设置为5周的时间跨度(防止误输入将区间设置得过大)
-func splitDateTimeRange(beginDate, endDate time.Time, timeRange, maxRange time.Duration) []*dateTimeRange {
-	// 默认跨度1周时间
-	if timeRange <= 0 {
-		timeRange = oneWeekTime
-	}
-	// 默认最大只能获取5周时间范围数据
-	if maxRange <= 0 || maxRange > fiveWeekTime {
-		maxRange = fiveWeekTime
-	}
+// 最大时间跨度不能超过 maxRange，超出将重置 endDate 到最大时间范围内(防止误输入将区间设置得过大)
+func splitDateTimeRange(beginDate, endDate time.Time, splitRange, maxRange time.Duration) []*dateTimeRange {
 	// 如果起始日期大于结束日期，则将二者日期交换
 	if beginDate.After(endDate) {
 		beginDate, endDate = endDate, beginDate
 	}
 	// 结束日期最大值只能是当前日期的前一天
-	y, m, d := Now().Date()
-	yesterday := time.Date(y, m, d-1, 0, 0, 0, 0, time.Local)
+	now := Now()
+	y, m, d := now.Date()
+	yesterday := time.Date(y, m, d-1, 0, 0, 0, 0, now.Location())
 	if endDate.After(yesterday) {
 		endDate = yesterday
 	}
@@ -256,26 +249,26 @@ func splitDateTimeRange(beginDate, endDate time.Time, timeRange, maxRange time.D
 	if endDate.Sub(beginDate) < oneDateTime {
 		beginDate = endDate.Add(-oneDateTime)
 	}
-	// 如果超出最大范围则将起始时间设置在最大范围之内
+	// 如果超出最大范围则将结束时间设置在最大范围之内
 	if endDate.Sub(beginDate) > maxRange {
-		beginDate = endDate.Add(-maxRange)
+		endDate = beginDate.Add(maxRange)
 	}
 	var dtrs []*dateTimeRange
 	for {
-		if r := endDate.Sub(beginDate); r > timeRange {
+		if r := endDate.Sub(beginDate); r > splitRange {
 			dtr := &dateTimeRange{
-				beginDate: beginDate,
-				endDate:   beginDate.Add(timeRange),
+				BeginDate: beginDate,
+				EndDate:   beginDate.Add(splitRange),
 			}
 			dtrs = append(dtrs, dtr)
-			beginDate = dtr.endDate
+			beginDate = dtr.EndDate
 		} else if r > 0 {
 			dtr := &dateTimeRange{
-				beginDate: beginDate,
-				endDate:   beginDate.Add(r),
+				BeginDate: beginDate,
+				EndDate:   beginDate.Add(r),
 			}
 			dtrs = append(dtrs, dtr)
-			beginDate = dtr.endDate
+			beginDate = dtr.EndDate
 		} else {
 			break
 		}
@@ -338,4 +331,34 @@ func (pc *PublicClient) GetUserStatistics(beginDate, endDate time.Time) (*UserSt
 		us.CumulateUser = maxDateCumulates.CumulateUser
 	}
 	return us, nil
+}
+
+// 获取公众号分广告位数据, 最大时间跨度: 90天, slot 是广告位类型，为可选参数
+func (pc *PublicClient) GetPublisherAdPosGeneral(slot statistics.AdSlot, opts statistics.PublisherCommonOptions) (*statistics.PublisherAdPosGeneralResponse, error) {
+	token, err := pc.configs.TokenGetter()
+	if err != nil {
+		return nil, err
+	} else {
+		return statistics.GetPublisherAdPosGeneral(token, slot, opts)
+	}
+}
+
+// 获取公众号返佣商品数据, 最大时间跨度: 60天
+func (pc *PublicClient) GetPublisherCpsGeneral(opts statistics.PublisherCommonOptions) (*statistics.PublisherCpsGeneralResponse, error) {
+	token, err := pc.configs.TokenGetter()
+	if err != nil {
+		return nil, err
+	} else {
+		return statistics.GetPublisherCpsGeneral(token, opts)
+	}
+}
+
+// 获取公众号结算收入数据及结算主体信息, 最大时间跨度: 无
+func (pc *PublicClient) GetPublisherSettlement(opts statistics.PublisherCommonOptions) (*statistics.PublisherSettlementResponse, error) {
+	token, err := pc.configs.TokenGetter()
+	if err != nil {
+		return nil, err
+	} else {
+		return statistics.GetPublisherSettlement(token, opts)
+	}
 }

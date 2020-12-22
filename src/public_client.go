@@ -17,30 +17,55 @@ type PublicClient struct {
 }
 
 type PublicClientConfigs struct {
-	AppGetter      AppGetter          // 公众号信息
-	Dispatcher     *Dispatcher        // 事件处理器
-	MsgVerifyToken string             // 消息验证
-	TokenGetter    AccessTokenGetter  // token  提供器
-	MsgCrypt       *pkg.WXBizMsgCrypt // 消息加密/解密器
-	Logger         *log.Logger        // 错误日志收集器
+	Appid          string
+	Info           *pkg.AuthorizerInfo // 公众号信息
+	Dispatcher     *Dispatcher         // 事件处理器
+	MsgVerifyToken string              // 消息验证
+	TokenGetter    AccessTokenGetter   // token  提供器
+	MsgCrypt       *pkg.WXBizMsgCrypt  // 消息加密/解密器
+	Logger         *log.Logger         // 错误日志收集器
+}
+
+// 获得公众号信息
+func (pc *PublicClient) GetAppInfo() *pkg.AuthorizerInfo {
+	return pc.configs.Info
 }
 
 // 获得 appid
-func (pc *PublicClient) GetAppInfo() (*AppInfo, error) {
-	return pc.configs.AppGetter()
+func (pc *PublicClient) GetAppid() string {
+	return pc.configs.Appid
 }
 
-func NewPublicClient(opts *PublicClientConfigs) (*PublicClient, error) {
-	if opts.Logger == nil {
-		app, err := opts.AppGetter()
-		if err != nil {
-			return nil, err
-		}
-		opts.Logger = log.New(os.Stderr, app.Appid, log.LstdFlags|log.Llongfile)
+func NewPublicClient(configs *PublicClientConfigs) *PublicClient {
+	if configs.Logger == nil {
+		configs.Logger = log.New(os.Stderr, configs.Appid, log.LstdFlags|log.Llongfile)
 	}
 	return &PublicClient{
-		configs: opts,
-	}, nil
+		configs: configs,
+	}
+}
+
+func (pc *PublicClient) SendMiniProgramPage(toOpenid []string, page *message.MiniProgramPage) error {
+	token, err := pc.configs.TokenGetter()
+	if err != nil {
+		return err
+	}
+	msg := message.CustomerMessage{
+		MsgType:         message.CustomerMsgTypeMiniProgramPage,
+		MiniProgramPage: page,
+	}
+	for _, openid := range toOpenid {
+		err = msg.Send(token, openid)
+		if err != nil {
+			if message.IsBreakError(err) {
+				return err
+			}
+			if !message.IsCMsgCommonError(err) {
+				pc.configs.Logger.Printf("{appid: %s} send customer mini program page to {openid:%s}: %s\n", pc.configs.Appid, openid, err)
+			}
+		}
+	}
+	return nil
 }
 
 // 读取用户发送/触发的消息, 如果 decrypter 不为 nil, 则通过 decrypter 解密, 否则按明文方式解析消息.
@@ -48,6 +73,7 @@ func (pc *PublicClient) ListenMessage(w http.ResponseWriter, r *http.Request) {
 	echoStr, err := message.CheckSignature(r, pc.configs.MsgVerifyToken)
 	if err != nil {
 		pc.configs.Logger.Println(err)
+		return
 	}
 	if echoStr != "" {
 		_, _ = w.Write([]byte(echoStr))
@@ -65,11 +91,7 @@ func (pc *PublicClient) ListenMessage(w http.ResponseWriter, r *http.Request) {
 			err = pc.configs.Dispatcher.trigger(
 				msg,
 				msgData,
-				pc.configs.AppGetter,
-				func() CustomerMsgResponser {
-					sender := newCustomerMsgSender(pc.configs.TokenGetter, pc.configs.Logger)
-					return newCustomerMsgResponser(msg.FromUserName, sender)
-				},
+				pc,
 				writer,
 			)
 			if err != nil {

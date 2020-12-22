@@ -364,3 +364,79 @@ func GetAuthorizerList(componentAccessToken, ComponentAppid string, offset, coun
 		return al, nil
 	}
 }
+
+// CreateAndBindOpenApp 创建开放平台帐号并绑定公众号/小程序
+func CreateAndBindOpenApp(componentAccessToken string, appid string) (openAppid string, err error) {
+	url := "https://api.weixin.qq.com/cgi-bin/open/create?access_token=" + componentAccessToken
+	data := map[string]string{
+		"appid": appid,
+	}
+	res := struct {
+		OpenAppid string `json:"open_appid"`
+	}{}
+	err = PostSchema(KindJson, url, data, &res)
+	if err != nil {
+		return "", err
+	} else {
+		return res.OpenAppid, nil
+	}
+}
+
+// BindOpenApp 将公众号/小程序绑定到开放平台帐号下, 该 API 用于将一个尚未绑定开放平台帐号的公众号或小程序绑定至指定开放平台帐号上。二者须主体相同。
+//  参数         说明
+//  appid       授权公众号或小程序的 appid
+//  openAppid   开放平台帐号 appid，由创建开发平台帐号接口返回
+//  返回码	说明
+//  0	    ok
+//  -1	    system error，系统错误
+//  40013	invalid appid，appid 或 open_appid 无效。
+//  89000	account has bound open，该公众号/小程序已经绑定了开放平台帐号
+//  89001	not same contractor，Authorizer 与开放平台帐号主体不相同
+//  89003	该开放平台帐号并非通过 api 创建，不允许操作
+//  89004	该开放平台帐号所绑定的公众号/小程序已达上限（100 个）
+func BindOpenApp(componentAccessToken string, appid, openAppid string) error {
+	url := "https://api.weixin.qq.com/cgi-bin/open/bind?access_token=" + componentAccessToken
+	data := map[string]string{
+		"appid":      appid,
+		"open_appid": openAppid,
+	}
+	return PostSchema(KindJson, url, data, nil)
+}
+
+// UnbindOpenApp 将公众号/小程序从开放平台帐号下解绑
+// 返回码	说明
+// 0	    ok
+// -1	    system error，系统错误
+// 40013	invalid appid，appid 或 open_appid 无效。
+// 89001	not same contractor，Authorizer 与开放平台帐号主体不相同
+// 89003	该开放平台帐号并非通过 api 创建，不允许操作
+func UnbindOpenApp(componentAccessToken string, appid, openAppid string) error {
+	url := "https://api.weixin.qq.com/cgi-bin/open/unbind?access_token=" + componentAccessToken
+	data := map[string]string{
+		"appid":      appid,
+		"open_appid": openAppid,
+	}
+	return PostSchema(KindJson, url, data, nil)
+}
+
+// 获取公众号/小程序所绑定的开放平台帐号
+// 返回码	说明
+// 0	    ok
+// -1	    system error，系统错误
+// 40013	invalid appid，appid 无效。
+// 89002	open not exists，该公众号/小程序未绑定微信开放平台帐号。
+func GetBindOpenApp(componentAccessToken string, appid string) (openAppid string, err error) {
+	url := "https://api.weixin.qq.com/cgi-bin/open/get?access_token=" + componentAccessToken
+	data := map[string]string{
+		"appid": appid,
+	}
+	res := struct {
+		OpenAppid string `json:"open_appid"`
+	}{}
+	err = PostSchema(KindJson, url, data, &res)
+	if err != nil {
+		return "", err
+	} else {
+		return res.OpenAppid, nil
+	}
+}

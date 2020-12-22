@@ -3,6 +3,8 @@ package statistics
 import (
 	"fmt"
 	"github.com/morgine/wechat_sdk/pkg"
+	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -49,16 +51,22 @@ type PublisherCommonOptions struct {
 	EndDate   time.Time // 获取数据的结束时间 yyyy-mm-dd
 }
 
-func (po PublisherCommonOptions) toData() map[string]interface{} {
-	mp := make(map[string]interface{}, 6)
-	mp["page"] = po.Page
+func (po PublisherCommonOptions) toUrl(action, accessToken string, slot AdSlot) string {
 	if po.PageSize > MaxPublisherPageSize {
 		po.PageSize = MaxPublisherPageSize
 	}
-	mp["page_size"] = po.PageSize
-	mp["start_date"] = po.StartDate.Format("2006-01-02")
-	mp["end_date"] = po.StartDate.Format("2006-01-02")
-	return mp
+	vs := url.Values{
+		"action":       []string{action},
+		"access_token": []string{accessToken},
+		"page":         []string{strconv.Itoa(po.Page)},
+		"page_size":    []string{strconv.Itoa(po.PageSize)},
+		"start_date":   []string{po.StartDate.Format("2006-01-02")},
+		"end_date":     []string{po.EndDate.Format("2006-01-02")},
+	}
+	if slot != "" {
+		vs.Set("ad_slot", string(slot))
+	}
+	return "https://api.weixin.qq.com/publisher/stat?" + vs.Encode()
 }
 
 type BaseResp struct {
@@ -97,29 +105,25 @@ type PublisherAdPosGeneralResponse struct {
 		ClickCount    int     `json:"click_count"`    // 点击量
 		ClickRate     float64 `json:"click_rate"`     // 点击率
 		Income        int     `json:"income"`         // 收入(分)
-		Ecpm          int     `json:"ecpm"`           // 广告千次曝光收益(分)
+		Ecpm          float64 `json:"ecpm"`           // 广告千次曝光收益(分)
 	} `json:"list"`
 	Summary struct {
-		ReqSuccCount  int     // 总拉取量
-		ExposureCount int     // 总曝光量
-		ExposureRate  float64 // 总曝光率
-		ClickCount    int     // 总点击量
-		ClickRate     float64 // 总点击率
-		Income        int     // 总收入(分)
-		Ecpm          int     // 广告千次曝光收益(分)
-	}
+		ReqSuccCount  int     `json:"req_succ_count"` // 总拉取量
+		ExposureCount int     `json:"exposure_count"` // 总曝光量
+		ExposureRate  float64 `json:"exposure_rate"`  // 总曝光率
+		ClickCount    int     `json:"click_count"`    // 总点击量
+		ClickRate     float64 `json:"click_rate"`     // 总点击率
+		Income        int     `json:"income"`         // 总收入(分)
+		Ecpm          float64 `json:"ecpm"`           // 广告千次曝光收益(分)
+	} `json:"summary"`
 	TotalNum int `json:"total_num"` // list 返回总条数
 }
 
 // 获取公众号分广告位数据, 最大时间跨度: 90天, slot 是广告位类型，为可选参数
 func GetPublisherAdPosGeneral(accessToken string, slot AdSlot, opts PublisherCommonOptions) (*PublisherAdPosGeneralResponse, error) {
-	url := "https://api.weixin.qq.com/publisher/stat?action=publisher_adpos_general&access_token=" + accessToken
-	data := opts.toData()
-	if slot != "" {
-		data["ad_slot"] = slot
-	}
+	uri := opts.toUrl("publisher_adpos_general", accessToken, slot)
 	rsp := &PublisherAdPosGeneralResponse{}
-	err := pkg.PostSchema(pkg.KindJson, url, data, rsp)
+	err := pkg.GetJson(uri, rsp)
 	if err != nil {
 		return nil, err
 	} else {
@@ -150,16 +154,15 @@ type PublisherCpsGeneralResponse struct {
 		OrderRate       float64 `json:"order_rate"`       // 总下单率
 		TotalFee        int     `json:"total_fee"`        // 订单总金额(分)
 		TotalCommission int     `json:"total_commission"` // 总预估收入(分)
-	}
+	} `json:"summary"`
 	TotalNum int `json:"total_num"` // list 返回总条数
 }
 
 // 获取公众号返佣商品数据, 最大时间跨度: 60天
 func GetPublisherCpsGeneral(accessToken string, opts PublisherCommonOptions) (*PublisherCpsGeneralResponse, error) {
-	url := "https://api.weixin.qq.com/publisher/stat?action=publisher_cps_general&access_token=" + accessToken
-	data := opts.toData()
+	uri := opts.toUrl("publisher_cps_general", accessToken, "")
 	rsp := &PublisherCpsGeneralResponse{}
-	err := pkg.PostSchema(pkg.KindJson, url, data, rsp)
+	err := pkg.GetJson(uri, rsp)
 	if err != nil {
 		return nil, err
 	} else {
@@ -195,10 +198,9 @@ type PublisherSettlementResponse struct {
 
 // 获取公众号结算收入数据及结算主体信息, 最大时间跨度: 无
 func GetPublisherSettlement(accessToken string, opts PublisherCommonOptions) (*PublisherSettlementResponse, error) {
-	url := "https://api.weixin.qq.com/publisher/stat?action=publisher_settlement&access_token=" + accessToken
-	data := opts.toData()
+	uri := opts.toUrl("publisher_settlement", accessToken, "")
 	rsp := &PublisherSettlementResponse{}
-	err := pkg.PostSchema(pkg.KindJson, url, data, rsp)
+	err := pkg.GetJson(uri, rsp)
 	if err != nil {
 		return nil, err
 	} else {

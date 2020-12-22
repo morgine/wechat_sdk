@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"sync"
-	"time"
 )
 
 type OpenClient struct {
@@ -114,30 +113,31 @@ func (oc *OpenClient) getComponentAccessToken() (string, error) {
 
 // 获得 pre auth code
 func (oc *OpenClient) getPreAuthCode() (string, error) {
-	code, err := oc.configs.ComponentStorage.GetPreAuthCode()
+	//code, err := oc.configs.ComponentStorage.GetPreAuthCode()
+	//if err != nil {
+	//	return "", err
+	//}
+	//now := Now().Unix()
+	//if code == nil || code.ExpiredAt < now {
+	token, err := oc.getComponentAccessToken()
+	if err != nil {
+		return "", nil
+	}
+	pac, err := pkg.CreatePreAuthCode(oc.configs.Appid, token)
 	if err != nil {
 		return "", err
 	}
-	now := Now().Unix()
-	if code == nil || code.ExpiredAt < now {
-		token, err := oc.getComponentAccessToken()
-		if err != nil {
-			return "", nil
-		}
-		pac, err := pkg.CreatePreAuthCode(oc.configs.Appid, token)
-		if err != nil {
-			return "", err
-		}
-		code = &ExpireData{
-			Value:     pac.PreAuthCode,
-			ExpiredAt: now + pac.ExpiresIn - (pac.ExpiresIn >> 3), // 过期时间提前 1/8
-		}
-		err = oc.configs.ComponentStorage.SavePreAuthCode(code)
-		if err != nil {
-			return "", err
-		}
-	}
-	return code.Value, nil
+	return pac.PreAuthCode, nil
+	//code = &ExpireData{
+	//	Value:     pac.PreAuthCode,
+	//	ExpiredAt: now + pac.ExpiresIn - (pac.ExpiresIn >> 3), // 过期时间提前 1/8
+	//}
+	//err = oc.configs.ComponentStorage.SavePreAuthCode(code)
+	//if err != nil {
+	//	return "", err
+	//}
+	//}
+	//return code.Value, nil
 }
 
 // 获得授权地址
@@ -214,7 +214,7 @@ func (oc *OpenClient) getAppAccessToken(appid string) (string, error) {
 }
 
 // 获取并保存公众号信息
-func (oc *OpenClient) refreshAppInfo(appid string) (*AppInfo, error) {
+func (oc *OpenClient) refreshAppInfo(appid string) (*pkg.AuthorizerInfo, error) {
 	token, err := oc.getComponentAccessToken()
 	if err != nil {
 		return nil, err
@@ -223,51 +223,42 @@ func (oc *OpenClient) refreshAppInfo(appid string) (*AppInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	info := authInfo.AuthorizerInfo
-	appInfo := &AppInfo{
-		Appid:           appid,
-		NickName:        info.NickName,
-		HeadImg:         info.HeadImg,
-		ServiceTypeInfo: info.ServiceTypeInfo.ID,
-		VerifyTypeInfo:  info.VerifyTypeInfo.ID,
-		UserName:        info.UserName,
-		PrincipalName:   info.PrincipalName,
-		Alias:           info.Alias,
-		QrcodeUrl:       info.QrcodeUrl,
-		Idc:             info.Idc,
-		Signature:       info.Signature,
-	}
-	err = oc.configs.AppStorage.SaveAppInfo(appid, appInfo)
+	info := &authInfo.AuthorizerInfo
+	err = oc.configs.AppStorage.SaveAppInfo(appid, info)
 	if err != nil {
 		return nil, err
 	}
-	return appInfo, nil
+	return info, nil
 }
 
-// 获得公众号客户端
+// 获得公众号客户端, 客户端有可能为 nil(被人为移除)
 func (oc *OpenClient) GetClient(appid string) (*PublicClient, error) {
 	oc.mu.Lock()
 	defer oc.mu.Unlock()
-	client := oc.publicClients[appid]
-	if client == nil {
-		opts := &PublicClientConfigs{
-			AppGetter: func() (*AppInfo, error) {
-				return oc.configs.AppStorage.GetAppInfo(appid)
-			},
-			Dispatcher:     oc.Dispatcher,
-			MsgVerifyToken: oc.configs.MsgVerifyToken,
-			TokenGetter: func() (token string, err error) {
-				return oc.getAppAccessToken(appid)
-			},
-			MsgCrypt: oc.msgCrypt,
-			Logger:   oc.configs.Logger,
-		}
-		var err error
-		client, err = NewPublicClient(opts)
+	client, ok := oc.publicClients[appid]
+	if !ok {
+		app, err := oc.configs.AppStorage.GetAppInfo(appid)
 		if err != nil {
 			return nil, err
+		} else {
+			if app == nil {
+				client = nil
+			} else {
+				opts := &PublicClientConfigs{
+					Appid:          appid,
+					Info:           app,
+					Dispatcher:     oc.Dispatcher,
+					MsgVerifyToken: oc.configs.MsgVerifyToken,
+					TokenGetter: func() (token string, err error) {
+						return oc.getAppAccessToken(appid)
+					},
+					MsgCrypt: oc.msgCrypt,
+					Logger:   oc.configs.Logger,
+				}
+				client = NewPublicClient(opts)
+			}
+			oc.publicClients[appid] = client
 		}
-		oc.publicClients[appid] = client
 	}
 	return client, nil
 }
@@ -277,13 +268,13 @@ func (oc *OpenClient) ListenMessage(appid string, w http.ResponseWriter, r *http
 	client, err := oc.GetClient(appid)
 	if err != nil {
 		oc.configs.Logger.Println(err)
-	} else {
+	} else if client != nil {
 		client.ListenMessage(w, r)
 	}
 }
 
 // 获得公众号信息，如果公众号不存在则拉取并保存公众号信息
-func (oc *OpenClient) GetAppInfo(appid string) (*AppInfo, error) {
+func (oc *OpenClient) GetAppInfo(appid string) (*pkg.AuthorizerInfo, error) {
 	appInfo, err := oc.configs.AppStorage.GetAppInfo(appid)
 	if err != nil {
 		return nil, err
@@ -293,6 +284,42 @@ func (oc *OpenClient) GetAppInfo(appid string) (*AppInfo, error) {
 	} else {
 		return appInfo, nil
 	}
+}
+
+// 创建开放平台帐号并绑定公众号/小程序
+func (oc *OpenClient) CreateAndBindOpenApp(appid string) (openAppid string, err error) {
+	accessToken, err := oc.getComponentAccessToken()
+	if err != nil {
+		return "", err
+	}
+	return pkg.CreateAndBindOpenApp(accessToken, appid)
+}
+
+// 将公众号/小程序绑定到开放平台帐号下, 该 API 用于将一个尚未绑定开放平台帐号的公众号或小程序绑定至指定开放平台帐号上。二者须主体相同。
+func (oc *OpenClient) BindOpenApp(appid, openAppid string) error {
+	accessToken, err := oc.getComponentAccessToken()
+	if err != nil {
+		return err
+	}
+	return pkg.BindOpenApp(accessToken, appid, openAppid)
+}
+
+// 获取公众号/小程序所绑定的开放平台帐号
+func (oc *OpenClient) GetBindOpenApp(appid string) (openAppid string, err error) {
+	accessToken, err := oc.getComponentAccessToken()
+	if err != nil {
+		return "", err
+	}
+	return pkg.GetBindOpenApp(accessToken, appid)
+}
+
+// 将公众号/小程序从开放平台帐号下解绑
+func (oc *OpenClient) UnbindOpenApp(appid, openAppid string) error {
+	accessToken, err := oc.getComponentAccessToken()
+	if err != nil {
+		return err
+	}
+	return pkg.UnbindOpenApp(accessToken, appid, openAppid)
 }
 
 // 迁移公众号, 获得已授权公众号信息以及 refresh token, 并删除多余的公众号(可能公众号已解除授权)
@@ -324,67 +351,67 @@ func (oc *OpenClient) MigrateApps() error {
 				return err
 			}
 			// 获取并保存授权方信息
-			info, err := oc.refreshAppInfo(information.AuthorizerAppid)
+			_, err := oc.refreshAppInfo(information.AuthorizerAppid)
 			if err != nil {
 				return err
 			}
-			appids = append(appids, info.Appid)
+			appids = append(appids, information.AuthorizerAppid)
 		}
 	}
 	return oc.configs.AppStorage.DelAppInfoNotIn(appids)
 }
 
-// 公众号用户统计
-type AppUserStatistics struct {
-	Appid      string          `json:"appid"`
-	Nickname   string          `json:"nickname"`
-	Err        string          `json:"err"`
-	Statistics *UserStatistics `json:"statistics"`
-}
-
-// 多公众号统计数据
-type MultipleAppUserStatistics struct {
-	AppCount          int                  `json:"count"`               // 当前统计的公众号总量
-	CumulateUser      int                  `json:"cumulate_user"`       // 用户总量
-	NewUser           int                  `json:"new_user"`            // 新增的用户数量
-	CancelUser        int                  `json:"cancel_user"`         // 取消关注的用户数量，new_user减去cancel_user即为净增用户数量
-	AppUserStatistics []*AppUserStatistics `json:"app_user_statistics"` // 公众号统计列表
-}
-
-// 获得多公众号统计数据
-func (oc *OpenClient) GetUserStatistics(apps []*AppInfo, beginDate, endDate time.Time) *MultipleAppUserStatistics {
-	//apps, err := oc.configs.AppStorage.GetAppNicknames(appLimit, appOffset)
-	//if err != nil {
-	//	return nil, err
-	//}
-	maus := &MultipleAppUserStatistics{
-		AppCount: len(apps),
-	}
-	wg := sync.WaitGroup{}
-	for _, app := range apps {
-		aus := &AppUserStatistics{
-			Appid:    app.Appid,
-			Nickname: app.NickName,
-		}
-		wg.Add(1)
-		go func() {
-			client, err := oc.GetClient(aus.Appid)
-			if err != nil {
-				aus.Err = err.Error()
-			} else {
-				aus.Statistics, err = client.GetUserStatistics(beginDate, endDate)
-				if err != nil {
-					aus.Err = err.Error()
-				} else {
-					maus.CumulateUser += aus.Statistics.CumulateUser
-					maus.NewUser += aus.Statistics.NewUser
-					maus.CancelUser += aus.Statistics.CancelUser
-				}
-			}
-			wg.Done()
-		}()
-		maus.AppUserStatistics = append(maus.AppUserStatistics, aus)
-	}
-	wg.Wait()
-	return maus
-}
+//// 公众号用户统计
+//type AppUserStatistics struct {
+//	Appid      string          `json:"appid"`
+//	Nickname   string          `json:"nickname"`
+//	Err        string          `json:"err"`
+//	Statistics *UserStatistics `json:"statistics"`
+//}
+//
+//// 多公众号统计数据
+//type MultipleAppUserStatistics struct {
+//	AppCount          int                  `json:"count"`               // 当前统计的公众号总量
+//	CumulateUser      int                  `json:"cumulate_user"`       // 用户总量
+//	NewUser           int                  `json:"new_user"`            // 新增的用户数量
+//	CancelUser        int                  `json:"cancel_user"`         // 取消关注的用户数量，new_user减去cancel_user即为净增用户数量
+//	AppUserStatistics []*AppUserStatistics `json:"app_user_statistics"` // 公众号统计列表
+//}
+//
+//// 获得多公众号统计数据
+//func (oc *OpenClient) GetUserStatistics(apps []*AppInfo, beginDate, endDate time.Time) *MultipleAppUserStatistics {
+//	//apps, err := oc.configs.AppStorage.GetAppNicknames(appLimit, appOffset)
+//	//if err != nil {
+//	//	return nil, err
+//	//}
+//	maus := &MultipleAppUserStatistics{
+//		AppCount: len(apps),
+//	}
+//	wg := sync.WaitGroup{}
+//	for _, app := range apps {
+//		aus := &AppUserStatistics{
+//			Appid:    app.Appid,
+//			Nickname: app.NickName,
+//		}
+//		wg.Add(1)
+//		go func() {
+//			client, err := oc.GetClient(aus.Appid)
+//			if err != nil {
+//				aus.Err = err.Error()
+//			} else {
+//				aus.Statistics, err = client.GetUserStatistics(beginDate, endDate)
+//				if err != nil {
+//					aus.Err = err.Error()
+//				} else {
+//					maus.CumulateUser += aus.Statistics.CumulateUser
+//					maus.NewUser += aus.Statistics.NewUser
+//					maus.CancelUser += aus.Statistics.CancelUser
+//				}
+//			}
+//			wg.Done()
+//		}()
+//		maus.AppUserStatistics = append(maus.AppUserStatistics, aus)
+//	}
+//	wg.Wait()
+//	return maus
+//}

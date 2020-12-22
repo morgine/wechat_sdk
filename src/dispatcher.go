@@ -6,28 +6,21 @@ import (
 
 type Context struct {
 	ResponseWriter
-	Openid                  string // 用户 openid
-	app                     *AppInfo
-	appGetter               func() (*AppInfo, error)
-	customerMsgSender       CustomerMsgResponser
-	customerMsgSenderGetter func() CustomerMsgResponser
-	values                  map[string]interface{}
+	Openid string // 用户 openid
+	client *PublicClient
+	values map[string]interface{}
 }
 
 func newContext(
-	ag func() (*AppInfo, error),
+	client *PublicClient,
 	openid string,
-	cg func() CustomerMsgResponser,
 	w ResponseWriter,
 ) *Context {
 	return &Context{
-		ResponseWriter:          w,
-		Openid:                  openid,
-		app:                     nil,
-		appGetter:               ag,
-		customerMsgSender:       nil,
-		customerMsgSenderGetter: cg,
-		values:                  map[string]interface{}{},
+		ResponseWriter: w,
+		Openid:         openid,
+		client:         client,
+		values:         map[string]interface{}{},
 	}
 }
 
@@ -40,23 +33,8 @@ func (ctx *Context) Set(key string, value interface{}) {
 	ctx.values[key] = value
 }
 
-func (ctx *Context) AppInfo() (*AppInfo, error) {
-	if ctx.app == nil {
-		app, err := ctx.appGetter()
-		if err != nil {
-			return nil, err
-		} else {
-			ctx.app = app
-		}
-	}
-	return ctx.app, nil
-}
-
-func (ctx *Context) CustomerMsgResponser() CustomerMsgResponser {
-	if ctx.customerMsgSender == nil {
-		ctx.customerMsgSender = ctx.customerMsgSenderGetter()
-	}
-	return ctx.customerMsgSender
+func (ctx *Context) Client() *PublicClient {
+	return ctx.client
 }
 
 type TextMsgHandler func(msg *message.TextMessage, ctx *Context)
@@ -100,8 +78,7 @@ func (d *Dispatcher) SubscribeTextMsg(h TextMsgHandler) {
 func (d *Dispatcher) trigger(
 	msg *message.ServerMessage,
 	data message.ServerMessageData,
-	ag func() (*AppInfo, error),
-	cg func() CustomerMsgResponser,
+	client *PublicClient,
 	w ResponseWriter,
 ) error {
 	switch msg.MsgType {
@@ -110,7 +87,7 @@ func (d *Dispatcher) trigger(
 		if err != nil {
 			return err
 		}
-		ctx := newContext(ag, msg.FromUserName, cg, w)
+		ctx := newContext(client, msg.FromUserName, w)
 		if handlers, ok := d.eventHandlers[eventMsg.Event]; ok {
 			for _, h := range handlers {
 				h(eventMsg, ctx)
@@ -122,7 +99,7 @@ func (d *Dispatcher) trigger(
 			if err != nil {
 				return err
 			} else {
-				ctx := newContext(ag, msg.FromUserName, cg, w)
+				ctx := newContext(client, msg.FromUserName, w)
 				for _, handler := range d.textMsgHandlers {
 					handler(textMsg, ctx)
 				}

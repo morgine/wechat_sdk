@@ -98,7 +98,6 @@ func PostData(kind cryptKind, url string, data []byte, response interface{}) err
 	if err != nil {
 		return err
 	}
-
 	if bytes.Contains(data, []byte("errcode")) {
 		var werr = &Error{}
 		resDecoder(data).Decode(werr)

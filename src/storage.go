@@ -2,6 +2,7 @@ package src
 
 import (
 	"encoding/json"
+	"github.com/morgine/wechat_sdk/pkg"
 	"time"
 )
 
@@ -11,8 +12,8 @@ type ComponentStorage interface {
 	GetVerifyTicket() (string, error) // 获得 ticket, 如果 ticket 不存在，则返回空字符串
 	SaveAccessToken(data *ExpireData) error
 	GetAccessToken() (*ExpireData, error) // 获得 access token, 如果 token 不存在，则返回 nil
-	SavePreAuthCode(data *ExpireData) error
-	GetPreAuthCode() (*ExpireData, error) // 获得 pre auth code, 如果 code 不存在，则返回 nil
+	//SavePreAuthCode(data *ExpireData) error
+	//GetPreAuthCode() (*ExpireData, error) // 获得 pre auth code, 如果 code 不存在，则返回 nil
 	SaveAppAccessToken(appid string, token *AppAccessToken) error
 	GetAppAccessToken(appid string) (*AppAccessToken, error) // 获得公众号 token, 如果 token 不存在，则返回 nil
 }
@@ -28,10 +29,10 @@ type AppNickname struct {
 }
 
 type AppStorage interface {
-	SaveAppInfo(appid string, info *AppInfo) error // 保存公众号信息
-	GetAppInfo(appid string) (*AppInfo, error)     // 获得公众号信息，如果信息不存在，则返回 nil
-	DelAppInfo(appid string) error                 // 删除公众号信息
-	DelAppInfoNotIn(appids []string) error         // 删除不存在于 appids 中的所有其他公众号信息
+	SaveAppInfo(appid string, app *pkg.AuthorizerInfo) error // 保存公众号信息
+	GetAppInfo(appid string) (*pkg.AuthorizerInfo, error)    // 获得公众号信息，如果信息不存在，则返回 nil
+	DelAppInfo(appid string) error                           // 删除公众号信息
+	DelAppInfoNotIn(appids []string) error                   // 删除不存在于 appids 中的所有其他公众号信息
 }
 
 type componentStorage struct {
@@ -76,22 +77,22 @@ func (c *componentStorage) GetAccessToken() (*ExpireData, error) {
 	}
 }
 
-func (c *componentStorage) SavePreAuthCode(data *ExpireData) error {
-	return c.marshalJSON("pre_auth_code", data, time.Unix(data.ExpiredAt, 0).Sub(time.Now()))
-}
-
-func (c *componentStorage) GetPreAuthCode() (*ExpireData, error) {
-	data := &ExpireData{}
-	err := c.unmarshalJSON("pre_auth_code", data)
-	if err != nil {
-		return nil, err
-	}
-	if data.Value != "" {
-		return data, nil
-	} else {
-		return nil, nil
-	}
-}
+//func (c *componentStorage) SavePreAuthCode(data *ExpireData) error {
+//	return c.marshalJSON("pre_auth_code", data, time.Unix(data.ExpiredAt, 0).Sub(time.Now()))
+//}
+//
+//func (c *componentStorage) GetPreAuthCode() (*ExpireData, error) {
+//	data := &ExpireData{}
+//	err := c.unmarshalJSON("pre_auth_code", data)
+//	if err != nil {
+//		return nil, err
+//	}
+//	if data.Value != "" {
+//		return data, nil
+//	} else {
+//		return nil, nil
+//	}
+//}
 
 func (c *componentStorage) SaveAppAccessToken(appid string, token *AppAccessToken) error {
 	return c.marshalJSON("app_access_token_"+appid, token, 0)

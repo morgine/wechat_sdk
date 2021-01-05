@@ -2,8 +2,10 @@ package src
 
 import (
 	"github.com/morgine/wechat_sdk/pkg"
+	"github.com/morgine/wechat_sdk/pkg/custom_menu"
 	"github.com/morgine/wechat_sdk/pkg/material"
 	"github.com/morgine/wechat_sdk/pkg/message"
+	"github.com/morgine/wechat_sdk/pkg/open_platform"
 	"github.com/morgine/wechat_sdk/pkg/statistics"
 	"github.com/morgine/wechat_sdk/pkg/users"
 	"log"
@@ -18,16 +20,16 @@ type PublicClient struct {
 
 type PublicClientConfigs struct {
 	Appid          string
-	Info           *pkg.AuthorizerInfo // 公众号信息
-	Dispatcher     *Dispatcher         // 事件处理器
-	MsgVerifyToken string              // 消息验证
-	TokenGetter    AccessTokenGetter   // token  提供器
-	MsgCrypt       *pkg.WXBizMsgCrypt  // 消息加密/解密器
-	Logger         *log.Logger         // 错误日志收集器
+	Info           *open_platform.AuthorizerInfo // 公众号信息
+	Dispatcher     *Dispatcher                   // 事件处理器
+	MsgVerifyToken string                        // 消息验证
+	TokenGetter    AccessTokenGetter             // token  提供器
+	MsgCrypt       *pkg.WXBizMsgCrypt            // 消息加密/解密器
+	Logger         *log.Logger                   // 错误日志收集器
 }
 
 // 获得公众号信息
-func (pc *PublicClient) GetAppInfo() *pkg.AuthorizerInfo {
+func (pc *PublicClient) GetAppInfo() *open_platform.AuthorizerInfo {
 	return pc.configs.Info
 }
 
@@ -382,5 +384,25 @@ func (pc *PublicClient) GetPublisherSettlement(opts statistics.PublisherCommonOp
 		return nil, err
 	} else {
 		return statistics.GetPublisherSettlement(token, opts)
+	}
+}
+
+// 创建自定义菜单
+func (pc *PublicClient) CreateMenu(buttons []custom_menu.Button) error {
+	token, err := pc.configs.TokenGetter()
+	if err != nil {
+		return err
+	} else {
+		return custom_menu.Create(token, buttons)
+	}
+}
+
+// 删除自定义菜单
+func (pc *PublicClient) DeleteMenu() error {
+	token, err := pc.configs.TokenGetter()
+	if err != nil {
+		return err
+	} else {
+		return custom_menu.Delete(token)
 	}
 }

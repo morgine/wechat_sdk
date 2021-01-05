@@ -1,8 +1,9 @@
-package pkg
+package open_platform
 
 import (
 	"encoding/xml"
 	"github.com/google/go-querystring/query"
+	"github.com/morgine/wechat_sdk/pkg"
 	"net/http"
 	"strconv"
 )
@@ -10,7 +11,7 @@ import (
 const (
 	EvtComponentVerifyTicket ComponentAuthorizationEvent = "component_verify_ticket"
 	EvtUnauthorized          ComponentAuthorizationEvent = "unauthorized"
-	EvtUpdateauthorized      ComponentAuthorizationEvent = "updateauthorized"
+	EvtUpdateAuthorized      ComponentAuthorizationEvent = "updateauthorized"
 	EvtAuthorized            ComponentAuthorizationEvent = "authorized"
 )
 
@@ -35,7 +36,7 @@ type AuthorizationNotify struct {
 }
 
 // 监听第三方授权通知
-func ListenComponentAuthorizationNotify(r *http.Request, decrypter *WXBizMsgCrypt) (notify *AuthorizationNotify, err error) {
+func ListenComponentAuthorizationNotify(r *http.Request, decrypter *pkg.WXBizMsgCrypt) (notify *AuthorizationNotify, err error) {
 	data, err := decrypter.DecryptRequest(r)
 	if err != nil {
 		return nil, err
@@ -63,7 +64,7 @@ func GetComponentAccessToken(componentAppid, appSecret, verifyTicket string) (to
 		"component_verify_ticket": verifyTicket,
 	}
 	token = &ComponentAccessToken{}
-	err = PostSchema(KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_component_token", data, token)
+	err = pkg.PostSchema(pkg.KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_component_token", data, token)
 	if err != nil {
 		return nil, err
 	} else {
@@ -81,7 +82,7 @@ type PreAuthCode struct {
 func CreatePreAuthCode(componentAppid, componentAccessToken string) (code *PreAuthCode, err error) {
 	data := map[string]string{"component_appid": componentAppid}
 	code = &PreAuthCode{}
-	err = PostSchema(KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_create_preauthcode?component_access_token="+componentAccessToken, data, code)
+	err = pkg.PostSchema(pkg.KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_create_preauthcode?component_access_token="+componentAccessToken, data, code)
 	if err != nil {
 		return nil, err
 	} else {
@@ -181,7 +182,7 @@ func GetAuthorizationInfo(componentAppid, authorizationCode, componentAccessToke
 		"authorization_code": authorizationCode,
 	}
 	res := &info{}
-	err = PostSchema(KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_query_auth?component_access_token="+componentAccessToken, data, res)
+	err = pkg.PostSchema(pkg.KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_query_auth?component_access_token="+componentAccessToken, data, res)
 	if err != nil {
 		return nil, err
 	} else {
@@ -207,7 +208,7 @@ func RefreshAuthorizerToken(componentAppid, authorizerAppid, authorizerRefreshTo
 		"authorizer_refresh_token": authorizerRefreshToken,
 	}
 	at = &AuthorizerToken{}
-	err = PostSchema(KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_authorizer_token?component_access_token="+componentAccessToken, data, at)
+	err = pkg.PostSchema(pkg.KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_authorizer_token?component_access_token="+componentAccessToken, data, at)
 	if err != nil {
 		return nil, err
 	} else {
@@ -278,7 +279,7 @@ func GetAuthorizerInfo(componentAppid, authorizerAppid, componentAccessToken str
 		"authorizer_appid": authorizerAppid,
 	}
 	res := &Authorizer{}
-	err = PostSchema(KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_get_authorizer_info?component_access_token="+componentAccessToken, data, res)
+	err = pkg.PostSchema(pkg.KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_get_authorizer_info?component_access_token="+componentAccessToken, data, res)
 	if err != nil {
 		return nil, err
 	} else {
@@ -314,7 +315,7 @@ func SetAuthorizerOption(componentAppid, accessToken string, option Option) erro
 		"option_name":      option.OptionName,
 		"option_value":     option.OptionValue,
 	}
-	return PostSchema(KindJson, "https://api.weixin.qq.com/cgi-bin/component/ api_set_authorizer_option?component_access_token="+accessToken, data, nil)
+	return pkg.PostSchema(pkg.KindJson, "https://api.weixin.qq.com/cgi-bin/component/ api_set_authorizer_option?component_access_token="+accessToken, data, nil)
 }
 
 // 获取授权方的选项设置信息
@@ -327,7 +328,7 @@ func GetAuthorizerOption(componentAppid, authorizerAppid, optionName, componentA
 		"option_name":      optionName,
 	}
 	option = &Option{}
-	err = PostSchema(KindJson, "https://api.weixin.qq.com/cgi-bin/component/ api_get_authorizer_option?component_access_token="+componentAccessToken, data, option)
+	err = pkg.PostSchema(pkg.KindJson, "https://api.weixin.qq.com/cgi-bin/component/ api_get_authorizer_option?component_access_token="+componentAccessToken, data, option)
 	if err != nil {
 		return nil, err
 	} else {
@@ -357,7 +358,7 @@ func GetAuthorizerList(componentAccessToken, ComponentAppid string, offset, coun
 		"count":           strconv.Itoa(count),
 	}
 	al := &AuthorizerList{}
-	err := PostSchema(KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_get_authorizer_list?component_access_token="+componentAccessToken, data, al)
+	err := pkg.PostSchema(pkg.KindJson, "https://api.weixin.qq.com/cgi-bin/component/api_get_authorizer_list?component_access_token="+componentAccessToken, data, al)
 	if err != nil {
 		return nil, err
 	} else {
@@ -374,7 +375,7 @@ func CreateAndBindOpenApp(componentAccessToken string, appid string) (openAppid 
 	res := struct {
 		OpenAppid string `json:"open_appid"`
 	}{}
-	err = PostSchema(KindJson, url, data, &res)
+	err = pkg.PostSchema(pkg.KindJson, url, data, &res)
 	if err != nil {
 		return "", err
 	} else {
@@ -400,7 +401,7 @@ func BindOpenApp(componentAccessToken string, appid, openAppid string) error {
 		"appid":      appid,
 		"open_appid": openAppid,
 	}
-	return PostSchema(KindJson, url, data, nil)
+	return pkg.PostSchema(pkg.KindJson, url, data, nil)
 }
 
 // UnbindOpenApp 将公众号/小程序从开放平台帐号下解绑
@@ -416,7 +417,7 @@ func UnbindOpenApp(componentAccessToken string, appid, openAppid string) error {
 		"appid":      appid,
 		"open_appid": openAppid,
 	}
-	return PostSchema(KindJson, url, data, nil)
+	return pkg.PostSchema(pkg.KindJson, url, data, nil)
 }
 
 // 获取公众号/小程序所绑定的开放平台帐号
@@ -433,7 +434,7 @@ func GetBindOpenApp(componentAccessToken string, appid string) (openAppid string
 	res := struct {
 		OpenAppid string `json:"open_appid"`
 	}{}
-	err = PostSchema(KindJson, url, data, &res)
+	err = pkg.PostSchema(pkg.KindJson, url, data, &res)
 	if err != nil {
 		return "", err
 	} else {

@@ -3,6 +3,7 @@ package src
 import (
 	"fmt"
 	"github.com/morgine/wechat_sdk/pkg"
+	"github.com/morgine/wechat_sdk/pkg/open_platform"
 	"log"
 	"net/http"
 	"sync"
@@ -47,7 +48,7 @@ func (oc *OpenClient) Configs() *OpenClientConfigs {
 
 // 监听通知消息
 func (oc *OpenClient) ListenVerifyTicket(w http.ResponseWriter, r *http.Request) {
-	notify, err := pkg.ListenComponentAuthorizationNotify(r, oc.msgCrypt)
+	notify, err := open_platform.ListenComponentAuthorizationNotify(r, oc.msgCrypt)
 	if err != nil {
 		oc.configs.Logger.Println(err)
 	} else {
@@ -60,16 +61,16 @@ func (oc *OpenClient) ListenVerifyTicket(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (oc *OpenClient) setNotify(notify *pkg.AuthorizationNotify) error {
+func (oc *OpenClient) setNotify(notify *open_platform.AuthorizationNotify) error {
 	switch notify.InfoType {
-	case pkg.EvtComponentVerifyTicket:
+	case open_platform.EvtComponentVerifyTicket:
 		return oc.configs.ComponentStorage.SaveVerifyTicket(notify.ComponentVerifyTicket)
-	case pkg.EvtAuthorized, pkg.EvtUpdateauthorized:
+	case open_platform.EvtAuthorized, open_platform.EvtUpdateAuthorized:
 		_, err := oc.refreshAppInfo(notify.AuthorizerAppid)
 		if err != nil {
 			return err
 		}
-	case pkg.EvtUnauthorized:
+	case open_platform.EvtUnauthorized:
 		oc.mu.Lock()
 		defer oc.mu.Unlock()
 		delete(oc.publicClients, notify.AuthorizerAppid)
@@ -95,7 +96,7 @@ func (oc *OpenClient) getComponentAccessToken() (string, error) {
 		if verifyTicket == "" {
 			return "", fmt.Errorf("component %s: verify ticket is empty", oc.configs.Appid)
 		}
-		accessToken, err := pkg.GetComponentAccessToken(oc.configs.Appid, oc.configs.Secret, verifyTicket)
+		accessToken, err := open_platform.GetComponentAccessToken(oc.configs.Appid, oc.configs.Secret, verifyTicket)
 		if err != nil {
 			return "", err
 		}
@@ -123,7 +124,7 @@ func (oc *OpenClient) getPreAuthCode() (string, error) {
 	if err != nil {
 		return "", nil
 	}
-	pac, err := pkg.CreatePreAuthCode(oc.configs.Appid, token)
+	pac, err := open_platform.CreatePreAuthCode(oc.configs.Appid, token)
 	if err != nil {
 		return "", err
 	}
@@ -146,7 +147,7 @@ func (oc *OpenClient) ComponentLoginPage(redirect string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return pkg.ComponentLoginPage(&pkg.ComponentLoginPageOptions{
+	return open_platform.ComponentLoginPage(&open_platform.ComponentLoginPageOptions{
 		ComponentAppid: oc.configs.Appid,
 		PreAuthCode:    preAuthCode,
 		RedirectUri:    redirect,
@@ -157,13 +158,13 @@ func (oc *OpenClient) ComponentLoginPage(redirect string) (string, error) {
 
 // 获得授权信息, 用户授权/未授权都跳回该地址
 func (oc *OpenClient) ListenLoginPage(request *http.Request) error {
-	code, _ := pkg.ListenLoginPage(request)
+	code, _ := open_platform.ListenLoginPage(request)
 	if code != "" {
 		token, err := oc.getComponentAccessToken()
 		if err != nil {
 			return err
 		}
-		authInfo, err := pkg.GetAuthorizationInfo(oc.configs.Appid, code, token)
+		authInfo, err := open_platform.GetAuthorizationInfo(oc.configs.Appid, code, token)
 		if err != nil {
 			return err
 		}
@@ -195,7 +196,7 @@ func (oc *OpenClient) getAppAccessToken(appid string) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			authToken, err := pkg.RefreshAuthorizerToken(oc.configs.Appid, appid, appAccessToken.RefreshToken, componentToken)
+			authToken, err := open_platform.RefreshAuthorizerToken(oc.configs.Appid, appid, appAccessToken.RefreshToken, componentToken)
 			if err != nil {
 				return "", err
 			}
@@ -214,12 +215,12 @@ func (oc *OpenClient) getAppAccessToken(appid string) (string, error) {
 }
 
 // 获取并保存公众号信息
-func (oc *OpenClient) refreshAppInfo(appid string) (*pkg.AuthorizerInfo, error) {
+func (oc *OpenClient) refreshAppInfo(appid string) (*open_platform.AuthorizerInfo, error) {
 	token, err := oc.getComponentAccessToken()
 	if err != nil {
 		return nil, err
 	}
-	authInfo, err := pkg.GetAuthorizerInfo(oc.configs.Appid, appid, token)
+	authInfo, err := open_platform.GetAuthorizerInfo(oc.configs.Appid, appid, token)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +275,7 @@ func (oc *OpenClient) ListenMessage(appid string, w http.ResponseWriter, r *http
 }
 
 // 获得公众号信息，如果公众号不存在则拉取并保存公众号信息
-func (oc *OpenClient) GetAppInfo(appid string) (*pkg.AuthorizerInfo, error) {
+func (oc *OpenClient) GetAppInfo(appid string) (*open_platform.AuthorizerInfo, error) {
 	appInfo, err := oc.configs.AppStorage.GetAppInfo(appid)
 	if err != nil {
 		return nil, err
@@ -292,7 +293,7 @@ func (oc *OpenClient) CreateAndBindOpenApp(appid string) (openAppid string, err 
 	if err != nil {
 		return "", err
 	}
-	return pkg.CreateAndBindOpenApp(accessToken, appid)
+	return open_platform.CreateAndBindOpenApp(accessToken, appid)
 }
 
 // 将公众号/小程序绑定到开放平台帐号下, 该 API 用于将一个尚未绑定开放平台帐号的公众号或小程序绑定至指定开放平台帐号上。二者须主体相同。
@@ -301,7 +302,7 @@ func (oc *OpenClient) BindOpenApp(appid, openAppid string) error {
 	if err != nil {
 		return err
 	}
-	return pkg.BindOpenApp(accessToken, appid, openAppid)
+	return open_platform.BindOpenApp(accessToken, appid, openAppid)
 }
 
 // 获取公众号/小程序所绑定的开放平台帐号
@@ -310,7 +311,7 @@ func (oc *OpenClient) GetBindOpenApp(appid string) (openAppid string, err error)
 	if err != nil {
 		return "", err
 	}
-	return pkg.GetBindOpenApp(accessToken, appid)
+	return open_platform.GetBindOpenApp(accessToken, appid)
 }
 
 // 将公众号/小程序从开放平台帐号下解绑
@@ -319,7 +320,7 @@ func (oc *OpenClient) UnbindOpenApp(appid, openAppid string) error {
 	if err != nil {
 		return err
 	}
-	return pkg.UnbindOpenApp(accessToken, appid, openAppid)
+	return open_platform.UnbindOpenApp(accessToken, appid, openAppid)
 }
 
 // 迁移公众号, 获得已授权公众号信息以及 refresh token, 并删除多余的公众号(可能公众号已解除授权)
@@ -333,7 +334,7 @@ func (oc *OpenClient) MigrateApps() error {
 	var offset, limit = 0, 100
 
 	for {
-		list, err := pkg.GetAuthorizerList(accessToken, oc.configs.Appid, offset, limit)
+		list, err := open_platform.GetAuthorizerList(accessToken, oc.configs.Appid, offset, limit)
 		if err != nil {
 			return err
 		}

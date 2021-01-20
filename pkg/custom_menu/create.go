@@ -45,7 +45,10 @@ type Button struct {
 
 // 生成公众号菜单
 func Create(accessToken string, buttons []Button) error {
+	data := map[string][]Button{
+		"button": buttons,
+	}
 	// 提交到公众号平台
 	u := "https://api.weixin.qq.com/cgi-bin/menu/create?access_token=" + accessToken
-	return pkg.PostSchema(pkg.KindJson, u, buttons, nil)
+	return pkg.PostSchema(pkg.KindJson, u, data, nil)
 }

@@ -1,6 +1,7 @@
 package users
 
 import (
+	"fmt"
 	"github.com/morgine/wechat_sdk/pkg"
 )
 
@@ -77,8 +78,32 @@ func GetTagUsers(token string, tagID int, nextOpenid string) (res *Users, err er
 	}
 }
 
+func WalkTagUsers(token string, tagID int, walk func(openids []string) error) error {
+	var nextOpenid string
+	for {
+		users, err := GetTagUsers(token, tagID, nextOpenid)
+		if err != nil {
+			return err
+		} else {
+			err = walk(users.Data.Openid)
+			if err != nil {
+				return err
+			} else {
+				if users.NextOpenid == "" {
+					return nil
+				} else {
+					nextOpenid = users.NextOpenid
+				}
+			}
+		}
+	}
+}
+
 // 批量设置用户标签
 func BatchTagging(token string, tagID int, openids []string) error {
+	if len(openids) > 50 {
+		return fmt.Errorf("40032 每次传入的 openid 列表个数不能超过50个")
+	}
 	uri := "https://api.weixin.qq.com/cgi-bin/tags/members/batchtagging?access_token=" + token
 	params := map[string]interface{}{
 		"tagid":       tagID,

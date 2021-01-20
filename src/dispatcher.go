@@ -39,7 +39,7 @@ func (ctx *Context) Client() *PublicClient {
 
 type TextMsgHandler func(msg *message.TextMessage, ctx *Context)
 
-type EventMsgHandler func(msg *message.EventMessage, ctx *Context)
+type EventMsgHandler func(msg message.ServerMessageData, evt *message.EventMessage, ctx *Context)
 
 type Music struct {
 	Title        string // 标题(可选)
@@ -90,7 +90,7 @@ func (d *Dispatcher) trigger(
 		ctx := newContext(client, msg.FromUserName, w)
 		if handlers, ok := d.eventHandlers[eventMsg.Event]; ok {
 			for _, h := range handlers {
-				h(eventMsg, ctx)
+				h(data, eventMsg, ctx)
 			}
 		}
 	case message.ServerMsgTypeText:

@@ -5,10 +5,10 @@ import (
 )
 
 // 获得已订阅用户列表
-func GetSubscribers(token string, walk func(openids []string) error) error {
+func WalkSubscribers(token string, walk func(openids []string) error) error {
 	var nextOpenid string
 	for {
-		users, err := GetNextSubscribers(token, nextOpenid)
+		users, err := GetSubscribers(token, nextOpenid)
 		if err != nil {
 			return err
 		} else {
@@ -26,7 +26,7 @@ func GetSubscribers(token string, walk func(openids []string) error) error {
 	}
 }
 
-func GetNextSubscribers(token, nextOpenID string) (users *Users, err error) {
+func GetSubscribers(token, nextOpenID string) (users *Users, err error) {
 	uri := "https://api.weixin.qq.com/cgi-bin/user/get?access_token=" + token
 	if nextOpenID != "" {
 		uri += "&next_openid=" + nextOpenID

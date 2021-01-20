@@ -4,20 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 )
 
-var ErrResponseIsNil = errors.New("the response schema is nil")
-
 func GetJson(Url string, response interface{}) (err error) {
 	var data []byte
-	if response == nil {
-		return ErrResponseIsNil
-	}
 	resp, err := http.Get(Url)
 	if err != nil {
 		return err
@@ -34,7 +28,11 @@ func GetJson(Url string, response interface{}) (err error) {
 			return werr
 		}
 	}
-	return json.Unmarshal(data, response)
+	if response != nil {
+		return json.Unmarshal(data, response)
+	} else {
+		return nil
+	}
 }
 
 func PostSchema(kind cryptKind, url string, schema, response interface{}) error {

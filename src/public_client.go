@@ -11,11 +11,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 )
 
 type PublicClient struct {
-	configs *PublicClientConfigs
+	configs      *PublicClientConfigs
+	waitTagUsers map[int][]string
+	mu           sync.Mutex
 }
 
 type PublicClientConfigs struct {
@@ -43,7 +46,8 @@ func NewPublicClient(configs *PublicClientConfigs) *PublicClient {
 		configs.Logger = log.New(os.Stderr, configs.Appid, log.LstdFlags|log.Llongfile)
 	}
 	return &PublicClient{
-		configs: configs,
+		configs:      configs,
+		waitTagUsers: map[int][]string{},
 	}
 }
 
@@ -127,6 +131,15 @@ func (pc *PublicClient) UploadTempMaterial(mediaType material.MediaType, data []
 	}
 }
 
+// 获得所有关注用户
+func (pc *PublicClient) WalkSubscribers(walk func(openids []string) error) error {
+	token, err := pc.configs.TokenGetter()
+	if err != nil {
+		return err
+	}
+	return users.WalkSubscribers(token, walk)
+}
+
 // 创建公众号标签
 func (pc *PublicClient) CreateAppUserTag(tagName string) (*users.Tag, error) {
 	token, err := pc.configs.TokenGetter()
@@ -176,6 +189,14 @@ func (pc *PublicClient) GetAppTagUsers(tagID int, nextOpenid string) (*users.Use
 	return users.GetTagUsers(accessToken, tagID, nextOpenid)
 }
 
+func (pc *PublicClient) WalkAppTagUsers(tagID int, walk func(openids []string) error) error {
+	accessToken, err := pc.configs.TokenGetter()
+	if err != nil {
+		return err
+	}
+	return users.WalkTagUsers(accessToken, tagID, walk)
+}
+
 // 批量为用户打标签
 func (pc *PublicClient) BatchTagging(tagID int, openids []string) error {
 	accessToken, err := pc.configs.TokenGetter()
@@ -183,6 +204,23 @@ func (pc *PublicClient) BatchTagging(tagID int, openids []string) error {
 		return err
 	}
 	return users.BatchTagging(accessToken, tagID, openids)
+}
+
+// 加入等待标签, 待用户达到一定数量时才会触发批量为打标签的动作, 防止大量打标签导致接口次数被用完
+func (pc *PublicClient) WaitBatchTagging(tagID, cacheNum int, openid string) error {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	pc.waitTagUsers[tagID] = append(pc.waitTagUsers[tagID], openid)
+	if len(pc.waitTagUsers[tagID]) > cacheNum {
+		accessToken, err := pc.configs.TokenGetter()
+		if err != nil {
+			return err
+		}
+		openids := pc.waitTagUsers[tagID]
+		pc.waitTagUsers[tagID] = []string{}
+		return users.BatchTagging(accessToken, tagID, openids)
+	}
+	return nil
 }
 
 // 批量为用户取消标签

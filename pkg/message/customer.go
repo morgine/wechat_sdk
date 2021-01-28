@@ -70,6 +70,8 @@ func IsCMsgCommonError(err error) bool {
 		switch werr.ErrCode {
 		case 45015 /*超时回复*/, 43004 /*未关注*/, 45047 /*发送条数超过上限*/ :
 			return true
+		case 40013: // 提示: invalid appid rid: 601240d4-5687701f-3de0854a, 暂不清楚什么情况
+			return true
 		}
 	}
 	return false
